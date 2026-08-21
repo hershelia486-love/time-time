@@ -82,7 +82,16 @@ function load() {
     };
   } catch { return structuredClone(defaultState); }
 }
-function persist() { const { editingItemId, editingProjectId, editingRoutineId, editingReflectionId, ...saved } = state; localStorage.setItem("ttc-pwa-v1", JSON.stringify({ ...saved, active: "today", selectedTool: null })); }
+function syncAndroidWidget() {
+  try {
+    if (!window.AndroidWidgetBridge?.updateSummary) return;
+    const todayRoutines = state.routines.filter(routine => routineOccursOnDate(routine, todayKey));
+    const completed = todayRoutines.filter(routine => routineDayStatus(routine, todayKey) === "completed").length;
+    const nextRoutine = todayRoutines.find(routine => routineDayStatus(routine, todayKey) !== "completed");
+    window.AndroidWidgetBridge.updateSummary(JSON.stringify({ completed, total: todayRoutines.length, nextTitle: nextRoutine?.title || "오늘의 루틴을 모두 마쳤어요", updatedAt: new Date().toISOString() }));
+  } catch (_) {}
+}
+function persist() { const { editingItemId, editingProjectId, editingRoutineId, editingReflectionId, ...saved } = state; localStorage.setItem("ttc-pwa-v1", JSON.stringify({ ...saved, active: "today", selectedTool: null })); syncAndroidWidget(); }
 function esc(value) { return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[char])); }
 function header(eyebrow, title, lead) { return `<div class="app-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><span class="retro-stamp">LOCAL MODE · 1988</span></div><button class="fullscreen-button" data-action="fullscreen" aria-label="전체 화면으로 보기" title="전체 화면으로 보기">⛶</button></div><p class="lead">${lead}</p>`; }
 function nav() {
@@ -444,6 +453,7 @@ function routines() {
 function render() {
   const views = { today, calendar: calendarView, routines, projects, tools: toolsView, reflect };
   document.querySelector("#app").innerHTML = `${views[state.active]()}${scrollControls()}${nav()}`;
+  syncAndroidWidget();
   bind();
 }
 function scrollControls() {
@@ -658,4 +668,4 @@ function act(action, id) {
 }
 
 render();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js?v=12").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=12").catch(() => {});

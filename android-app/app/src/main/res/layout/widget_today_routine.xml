@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/widget_background" android:orientation="vertical" android:padding="12dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="오늘의 루틴" android:textColor="@color/ink" android:textSize="13sp" android:textStyle="bold" />
+    <TextView android:id="@+id/widget_progress" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="0/0 완료" android:textColor="@color/teal" android:textSize="22sp" android:textStyle="bold" />
+    <TextView android:id="@+id/widget_next_routine" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:ellipsize="end" android:maxLines="2" android:text="앱을 열어 오늘 루틴을 확인하세요" android:textColor="@color/ink" android:textSize="12sp" />
+</LinearLayout>
