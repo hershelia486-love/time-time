@@ -8,6 +8,9 @@ const statusLabels = { planned: "계획", progress: "진행", completed: "완료
 const routineStatusLabels = { ...statusLabels, postponed: "미룸" };
 const typeLabels = { task: "할 일", event: "일정" };
 const priorityLabels = { high: "중요", normal: "보통", low: "나중" };
+const trackLabels = { red: "빨강", black: "검정" };
+const moodFaces = [["awful", "😣"], ["down", "😕"], ["ok", "😐"], ["good", "🙂"], ["great", "😄"]];
+const moodLabels = { awful: "😣", down: "😕", ok: "😐", good: "🙂", great: "😄" };
 const tools = [
   [1, "나의 최종 목적 찾기", "북극성을 한 문장으로", "이미 원하는 삶을 살고 있다면, 오늘 어떤 선택을 하고 있을까요?", "나의 최종 목적"],
   [2, "프로젝트 만들기", "결과가 보이는 단위로", "지금 시작하면 미래의 삶을 앞당길 프로젝트는 무엇인가요?", "프로젝트 완료 기준"],
@@ -50,7 +53,7 @@ const defaultState = {
     { id: 102, title: "월간 나침반 점검", cadence: "monthly", target: 1, area: "personal", completions: [], fixed: false, monthlyDay: 1, active: true, statusByPeriod: {} },
     { id: 103, title: "연간 삶의 방향 검토", cadence: "yearly", target: 1, area: "personal", completions: [], fixed: false, yearlyMonth: 1, yearlyDay: 1, active: true, statusByPeriod: {} }
   ],
-  notes: {}, reflection: { win: "", friction: "", question: "" }, reflectionEntries: [], active: "today", selectedTool: null, randomToolId: null,
+  notes: {}, reflection: { win: "", friction: "", question: "" }, reflectionEntries: [], moodLog: {}, thoughts: [], events: [], detailDate: todayKey, yearNum: Number(todayKey.slice(0, 4)), active: "today", selectedTool: null, randomToolId: null,
   calendarMonth: todayKey.slice(0, 7), selectedDate: todayKey, calendarWeekStart: todayKey, calendarLayout: "vertical", calendarMode: "month", routinePickerDate: null,
   editingItemId: null, editingProjectId: null, editingRoutineId: null, editingReflectionId: null,
   dashboardArea: "all", routineArea: "all", calendarArea: "all", calendarHorizon: "all", calendarStatus: "all", calendarPriority: "all"
@@ -70,7 +73,10 @@ function load() {
     return {
       ...defaultState, ...stored,
       projects: (stored?.projects ?? defaultState.projects).map(project => ({ ...project, dueDate: project.dueDate || "", status: project.status || "planned", progress: Math.max(0, Math.min(100, Number(project.progress) || 0)) })),
-      items: (stored?.items ?? defaultState.items).map((item, index) => ({ ...item, priority: item.priority || "normal", sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : index, projectId: item.projectId ?? null, timeSlot: item.timeSlot ?? null })),
+      items: (stored?.items ?? defaultState.items).map((item, index) => ({ ...item, priority: item.priority || "normal", track: item.track || (item.priority === "high" ? "red" : "black"), sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : index, projectId: item.projectId ?? null, timeSlot: item.timeSlot ?? null })),
+      moodLog: (stored && stored.moodLog) || {},
+      thoughts: Array.isArray(stored && stored.thoughts) ? stored.thoughts : [],
+      events: Array.isArray(stored && stored.events) ? stored.events : [],
       routines: (stored?.routines ?? defaultState.routines).map(routine => {
         const weekday = Number.isInteger(routine.weekday) ? routine.weekday : 0;
         const fixedWeekdays = Array.isArray(routine.fixedWeekdays) ? routine.fixedWeekdays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6) : (routine.fixed ? [weekday] : []);
@@ -175,7 +181,7 @@ function projectStats(project) {
   return { ...project, items, progress, status, completedItems: items.filter(item => item.status === "completed").length };
 }
 function itemEditCard(item) {
-  return `<article class="card form edit-form"><div class="topline"><span class="pill ochre">할 일·일정 수정</span><button class="linkbtn" data-action="cancel-item-edit">취소</button></div><label>제목<input id="edit-item-title" value="${esc(item.title)}"></label><div class="row"><label>유형<select id="edit-item-type">${typeOptions(item.type)}</select></label><label>영역<select id="edit-item-area">${areaOptions(item.area)}</select></label></div><div class="row"><label>날짜<input id="edit-item-date" type="date" value="${item.date}"></label><label>상태<select id="edit-item-status">${statusOptions(item.status)}</select></label></div><label>우선순위<select id="edit-item-priority">${priorityOptions(item.priority || "normal")}</select></label><label>연결할 프로젝트<select id="edit-item-project">${projectOptions(item.projectId)}</select></label><button class="primary" data-action="save-item-edit" data-id="${item.id}">수정 저장</button></article>`;
+  return `<article class="card form edit-form"><div class="topline"><span class="pill ochre">할 일·일정 수정</span><button class="linkbtn" data-action="cancel-item-edit">취소</button></div><label>제목<input id="edit-item-title" value="${esc(item.title)}"></label><div class="row"><label>유형<select id="edit-item-type">${typeOptions(item.type)}</select></label><label>영역<select id="edit-item-area">${areaOptions(item.area)}</select></label></div><div class="row"><label>날짜<input id="edit-item-date" type="date" value="${item.date}"></label><label>상태<select id="edit-item-status">${statusOptions(item.status)}</select></label></div><label>색 분류 🔴/⚫<select id="edit-item-track"><option value="red" ${trackOf(item) === "red" ? "selected" : ""}>🔴 빨강 (가장 중요)</option><option value="black" ${trackOf(item) === "black" ? "selected" : ""}>⚫ 검정 (잡무)</option></select></label><label>연결할 프로젝트<select id="edit-item-project">${projectOptions(item.projectId)}</select></label><button class="primary" data-action="save-item-edit" data-id="${item.id}">수정 저장</button></article>`;
 }
 function itemCard(item) {
   if (state.editingItemId === item.id) return itemEditCard(item);
@@ -313,7 +319,7 @@ function calendarView() {
   <section class="area-progress-grid">${Object.entries(areas).map(([key, area]) => { const stat = progressStats(state.items.filter(item => item.area === key)); return `<button class="area-progress area-${area.color}" data-action="calendar-area" data-id="${key}"><strong>${area.label}</strong><span>${stat.percent}%</span><small>${stat.completed}/${stat.total || 0} 완료 · 보기</small></button>`; }).join("")}</section>
   ${planner}
   <div class="section-title"><span>${selected.replaceAll("-", ".")} 기록</span><span class="meta">${selectedItems.length}개</span></div>
-  <section class="card form item-form"><label>제목<input id="item-title" placeholder="예: 고객 미팅 준비"></label><div class="row"><label>유형<select id="item-type">${typeOptions("task")}</select></label><label>영역<select id="item-area">${areaOptions(state.calendarArea === "all" ? "personal" : state.calendarArea)}</select></label></div><div class="row"><label>날짜<input id="item-date" type="date" value="${selected}"></label><label>상태<select id="item-status">${statusOptions("planned")}</select></label></div><label>우선순위<select id="item-priority">${priorityOptions("normal")}</select></label><label>연결할 프로젝트<select id="item-project">${projectOptions()}</select></label><button class="primary" data-action="add-item">일정·할 일 추가</button></section>
+  <section class="card form item-form"><label>제목<input id="item-title" placeholder="예: 고객 미팅 준비"></label><div class="row"><label>유형<select id="item-type">${typeOptions("task")}</select></label><label>영역<select id="item-area">${areaOptions(state.calendarArea === "all" ? "personal" : state.calendarArea)}</select></label></div><div class="row"><label>날짜<input id="item-date" type="date" value="${selected}"></label><label>상태<select id="item-status">${statusOptions("planned")}</select></label></div><label>색 분류 🔴/⚫<select id="item-track"><option value="red">🔴 빨강 (가장 중요)</option><option value="black" selected>⚫ 검정 (잡무)</option></select></label><label>연결할 프로젝트<select id="item-project">${projectOptions()}</select></label><button class="primary" data-action="add-item">일정·할 일 추가</button></section>
   <div class="item-list">${selectedItems.length ? selectedItems.map(itemCard).join("") : `<section class="card empty">선택한 날짜에 기록된 계획이 없습니다.</section>`}</div>`;
 }
 
@@ -416,7 +422,7 @@ function reflect() {
   return `${header("주간 검토 · 도구 10", "성찰", "평가보다 관찰에 집중하면 다음 선택이 더 선명해집니다.")}
   <section class="card reflection-routine-link"><strong>루틴은 별도 탭에서 관리합니다.</strong><p>오늘의 작은 습관, 주간 반복, 목표 달성을 한 곳에서 확인하세요.</p><button class="outline" data-tab="routines">루틴 탭 열기</button></section>
   <div class="section-title"><span>${editing ? "성찰 수정" : "새 성찰 기록"}</span><span class="meta">${entries.length}개 저장됨</span></div>
-  <section class="card form"><label>이번 주에 잘한 선택<textarea id="win" placeholder="가치에 가까워진 순간을 적어 보세요">${esc(reflection.win)}</textarea></label><label>다음에 바꾸고 싶은 마찰<textarea id="friction" placeholder="시간을 빼앗거나 에너지를 소모한 지점">${esc(reflection.friction)}</textarea></label><label>더 좋은 질문<textarea id="question" placeholder="다음 주에 나에게 던질 질문">${esc(reflection.question)}</textarea></label><div class="row">${editing ? `<button class="outline" data-action="cancel-reflection-edit">취소</button>` : ""}<button class="primary" data-action="save-reflect">${editing ? "성찰 수정 저장" : "성찰 저장"}</button></div><p class="notice">루틴·일정·성찰 기록은 이 브라우저와 기기에만 저장됩니다.</p></section>
+  <section class="card form"><label>오늘 나를 가장 흔든 감정은?<textarea id="win" placeholder="예: 오후에 갑자기 무기력했다">${esc(reflection.win)}</textarea></label><label>그 감정이 어떤 계획을 밀어냈나? (없으면 없음)<textarea id="friction" placeholder="예: 빨강 20분 점검을 미룰 뻔했다">${esc(reflection.friction)}</textarea></label><label>내일 그 감정이 오면 뭘 다르게?<textarea id="question" placeholder="예: 5분 타이머만 켜고 앉는다">${esc(reflection.question)}</textarea></label><div class="row">${editing ? `<button class="outline" data-action="cancel-reflection-edit">취소</button>` : ""}<button class="primary" data-action="save-reflect">${editing ? "성찰 수정 저장" : "성찰 저장"}</button></div><p class="notice">루틴·일정·성찰 기록은 이 브라우저와 기기에만 저장됩니다.</p></section>
   <div class="section-title"><span>성찰 기록 목록</span><span class="meta">수정·삭제 가능</span></div><section class="reflection-list">${entries.length ? entries.map(reflectionCard).join("") : `<section class="card empty">아직 저장된 성찰이 없습니다.</section>`}</section>`;
 }
 
@@ -450,8 +456,95 @@ function routines() {
   ${routinesView()}`;
 }
 
+function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
+function logEvent(type, text, date = todayKey) { state.events = state.events || []; state.events.unshift({ id: Date.now() + Math.random(), date, time: nowTime(), type, text }); if (state.events.length > 800) state.events = state.events.slice(0, 800); }
+function trackOf(item) { return item.track || (item.priority === "high" ? "red" : "black"); }
+function moodStrip() {
+  const list = (state.moodLog && state.moodLog[todayKey]) || [];
+  const current = list.length ? list[list.length - 1].mood : null;
+  return `<section class="mood-strip"><span class="mood-lab">지금 기분?</span><div class="mood-faces">${moodFaces.map(([key, face]) => `<button class="mood-face ${current === key ? "sel" : ""}" data-action="set-mood" data-id="${key}|${todayKey}" aria-label="${key}">${face}</button>`).join("")}</div></section>`;
+}
+function redFocus() {
+  const reds = state.items.filter(item => trackOf(item) === "red" && item.status !== "completed" && item.date <= todayKey).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  return `<section class="card block-red"><div class="block-kick"><span class="cdot red"></span>오늘의 빨강 <small>가장 중요한 일</small></div>${reds.length ? reds.map((item, index) => { const area = areas[item.area] || areas.personal; return `<div class="red-focus ${index === 0 ? "first" : ""}"><div class="rf-top"><span class="area-tag area-${area.color}">${area.label}</span><span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div><div class="rf-title">${esc(item.title)}</div><div class="rf-btns"><button class="outline mini" data-action="postpone-red" data-id="${item.id}">미루기</button><button class="primary mini" data-action="complete-item" data-id="${item.id}">완료 ✓</button></div></div>`; }).join("") : `<p class="fold-empty">오늘의 빨강이 없습니다. 캘린더에서 중요한 일 하나를 🔴빨강으로 정하세요.</p>`}<button class="linkbtn" data-action="open-calendar">＋ 빨강 추가·관리 ›</button></section>`;
+}
+function blueHabits() {
+  const todays = state.routines.filter(routine => routineOccursOnDate(routine, todayKey));
+  const done = todays.filter(routine => routineDayStatus(routine, todayKey) === "completed").length;
+  return `<section class="card block-blue"><div class="block-kick"><span class="cdot blue"></span>파랑 습관 <span class="cnt">${done} / ${todays.length}</span></div>${todays.length ? `<div class="habit-list">${todays.map(routine => { const on = routineDayStatus(routine, todayKey) === "completed"; return `<button class="habit ${on ? "on" : ""}" data-action="toggle-habit" data-id="${routine.id}"><span class="hbox">${on ? "✓" : ""}</span><span class="hname">${esc(routine.title)}</span></button>`; }).join("")}</div>` : `<p class="fold-empty">오늘 실행할 습관이 없습니다.</p>`}<button class="linkbtn" data-tab="routines">습관 관리 ›</button></section>`;
+}
+function blackBlock() {
+  const blacks = state.items.filter(item => trackOf(item) === "black" && item.status !== "completed" && item.date <= todayKey);
+  return `<details class="card block-black"><summary><span class="cdot black"></span>검정 <small>여유 되면 · ${blacks.length}개</small></summary><div class="black-inner">${blacks.length ? blacks.map(item => `<button class="black-row" data-action="complete-item" data-id="${item.id}"><span class="hbox sm"></span>${esc(item.title)}</button>`).join("") : `<p class="fold-empty">잡무가 없습니다.</p>`}</div></details>`;
+}
+function todayNew() {
+  const open = (state.thoughts || []).filter(thought => thought.status === "open").length;
+  const project = state.projects[0];
+  const projectAction = project ? state.items.find(item => item.projectId === project.id && item.status !== "completed") : null;
+  return `${header("TIME TIPPING COMPASS", "오늘", "지금 할 것만. 색으로 좁히고, 습관은 체크로.")}
+  ${moodStrip()}
+  <section class="quick-thought"><input id="quick-thought" placeholder="떠오른 생각 한 줄… (나중에 분류)"><button class="qt-btn" data-action="add-thought">담기 +</button></section>
+  ${open ? `<button class="thought-flag" data-action="open-day-detail" data-id="${todayKey}">💭 정리 안 한 생각 ${open}개 · 다이어리에서 분류 ›</button>` : ""}
+  ${redFocus()}
+  ${blueHabits()}
+  ${blackBlock()}
+  <section class="today-link-grid">${todayProjectCard(project, projectAction)}${todayReflectionCard(state.reflectionEntries && state.reflectionEntries[0])}</section>
+  <div class="row two-btn"><button class="outline" data-action="open-day-detail" data-id="${todayKey}">📖 오늘 다이어리</button><button class="outline" data-action="open-year">📅 연간 보기</button></div>
+  <details class="today-more"><summary>목적 · 4대 영역 더 보기</summary><section class="card purpose"><div class="topline"><span class="pill ochre">◈ 최종 목적</span><button class="linkbtn" data-action="edit-purpose">다듬기 ›</button></div><p class="purpose-copy">${esc(state.purpose)}</p></section>${areaGuide()}<section class="area-command-grid">${Object.entries(areas).map(([key, area]) => areaCommand(key, area)).join("")}</section></details>`;
+}
+function dayDetail() {
+  const date = state.detailDate || todayKey;
+  const moods = (state.moodLog && state.moodLog[date]) || [];
+  const evts = (state.events || []).filter(event => event.date === date).slice().sort((a, b) => a.time.localeCompare(b.time));
+  const dayItems = state.items.filter(item => item.date === date);
+  const redDone = dayItems.filter(item => trackOf(item) === "red" && item.status === "completed").length;
+  const habits = state.routines.filter(routine => routineOccursOnDate(routine, date));
+  const habitDone = habits.filter(routine => routineDayStatus(routine, date) === "completed").length;
+  const blackCnt = dayItems.filter(item => trackOf(item) === "black").length;
+  const open = (state.thoughts || []).filter(thought => thought.status === "open");
+  return `${header("DIARY · DAY", "하루 다이어리", "시간은 자동으로 기록됩니다. 생각은 잡거나 버리세요.")}
+  <div class="day-nav"><button class="month-button" data-action="detail-prev">‹</button><strong>${date.replaceAll("-", ".")} (${weekdayLabel(date)})</strong><button class="month-button" data-action="detail-next">›</button></div>
+  <div class="day-chips"><span class="dchip red">🔴 ${redDone}</span><span class="dchip blue">🔵 ${habitDone}/${habits.length}</span><span class="dchip black">⚫ ${blackCnt}</span></div>
+  <section class="card"><div class="block-kick">🌡 감정 관찰</div>${moods.length ? `<div class="mood-track">${moods.map(m => `<span class="mt"><b>${moodLabels[m.mood] || "·"}</b><small>${m.time || ""}</small></span>`).join("")}</div>` : `<p class="fold-empty">이 날 기록된 기분이 없습니다.</p>`}</section>
+  <section class="card"><div class="block-kick">🕘 시간 타임라인 <small class="auto-badge">자동 생성</small></div>${evts.length ? `<div class="tl">${evts.map(event => `<div class="tl-ev"><span class="tl-time">${event.time}</span><span class="tl-dot ${event.type}"></span><div class="tl-body">${esc(event.text)}</div></div>`).join("")}</div>` : `<p class="fold-empty">아직 기록된 행동이 없습니다. 기분 체크·습관 완료·생각 담기를 하면 시간순으로 쌓입니다.</p>`}</section>
+  <section class="card"><div class="block-kick">💭 생각 정리함 <small>잡을 건 잡고, 버릴 건 버림</small></div><div class="capture"><input id="day-thought" placeholder="떠오른 생각 한 줄…"><button class="qt-btn" data-action="add-thought">담기 +</button></div><div class="thought-list">${open.length ? open.map(thought => `<div class="thought"><div class="tx">💭 ${esc(thought.text)}</div><div class="triage"><button data-action="assign-thought" data-id="${thought.id}|red">🔴 빨강</button><button data-action="assign-thought" data-id="${thought.id}|black">⚫ 검정</button><button class="tr-x" data-action="trash-thought" data-id="${thought.id}">🗑 버림</button></div></div>`).join("") : `<p class="fold-empty">정리할 생각이 없습니다.</p>`}</div></section>
+  <section class="board-link-card reflection-board"><div><span class="board-kicker">🌙 저녁 감정 성찰</span><strong>오늘 나를 흔든 감정 하나</strong></div><button class="outline" data-action="open-reflect">성찰하기</button></section>
+  <div class="row"><button class="outline" data-action="open-calendar">‹ 캘린더로</button></div>`;
+}
+function yearView() {
+  const year = state.yearNum || Number(todayKey.slice(0, 4));
+  const monNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const monthsHtml = monNames.map((mn, m) => {
+    const first = (new Date(year, m, 1).getDay() + 6) % 7;
+    const days = new Date(year, m + 1, 0).getDate();
+    let cells = "";
+    for (let i = 0; i < first; i++) cells += `<span class="ycell blank"></span>`;
+    for (let d = 1; d <= days; d++) {
+      const date = `${year}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const blue = state.routines.filter(routine => routine.dailyRecords && routine.dailyRecords[date] && routine.dailyRecords[date].status === "completed").length;
+      const redDone = state.items.some(item => item.date === date && item.status === "completed" && trackOf(item) === "red");
+      let cls = "ycell";
+      if (blue >= 1) cls += " b" + Math.min(blue, 4);
+      if (redDone) cls += " red";
+      if (date === todayKey) cls += " today";
+      cells += `<span class="${cls}"></span>`;
+    }
+    return `<button class="ymon" data-action="year-open-month" data-id="${year}-${String(m + 1).padStart(2, "0")}"><span class="ymh">${mn}</span><span class="ygrid">${cells}</span></button>`;
+  }).join("");
+  const highlights = state.items.filter(item => trackOf(item) === "red" && item.status === "completed" && item.date.startsWith(String(year))).sort((a, b) => a.date.localeCompare(b.date));
+  const weekCounts = [0, 0, 0, 0, 0, 0, 0];
+  state.routines.forEach(routine => { Object.entries(routine.dailyRecords || {}).forEach(([date, rec]) => { if (rec.status === "completed" && date.startsWith(String(year))) weekCounts[mondayIndex(date)]++; }); });
+  const maxW = Math.max(1, ...weekCounts);
+  const wdNames = ["월", "화", "수", "목", "금", "토", "일"];
+  return `${header("DIARY · YEAR", `${year} 연간`, "달마다 · 요일마다 무엇을 했는지 한눈에 봅니다.")}
+  <div class="day-nav"><button class="month-button" data-action="year-prev">‹</button><strong>${year}</strong><button class="month-button" data-action="year-next">›</button></div>
+  <section class="card"><div class="block-kick">🗓 12개월 <small>탭하면 그 달로</small></div><div class="year-months">${monthsHtml}</div><p class="year-legend"><span class="ycell b1"></span><span class="ycell b2"></span><span class="ycell b3"></span><span class="ycell b4"></span> 습관 적음→많음 · <span class="ycell red"></span> 빨강 달성</p></section>
+  <section class="card"><div class="block-kick">🔴 올해의 하이라이트 <small>해낸 빨강</small></div>${highlights.length ? highlights.map(highlight => `<div class="hl-row"><strong>${esc(highlight.title)}</strong><small>${highlight.date.replaceAll("-", ".")} · ${(areas[highlight.area] || areas.personal).label}</small></div>`).join("") : `<p class="fold-empty">아직 완료한 빨강이 없습니다. 올해 목표 하나를 🔴로 정하고 해내 보세요.</p>`}</section>
+  <section class="card"><div class="block-kick">🔵 요일별 습관 <small>어느 요일에 많이 해냈나</small></div><div class="weekbars">${wdNames.map((w, i) => `<div class="wb"><span class="wd">${w}</span><div class="wtrack"><div class="wfill" style="width:${Math.round(weekCounts[i] / maxW * 100)}%"></div></div><span class="wc">${weekCounts[i]}</span></div>`).join("")}</div></section>
+  <div class="row"><button class="outline" data-action="open-calendar">‹ 캘린더로</button></div>`;
+}
 function render() {
-  const views = { today, calendar: calendarView, routines, projects, tools: toolsView, reflect };
+  const views = { today: todayNew, calendar: calendarView, routines, projects, tools: toolsView, reflect, day: dayDetail, year: yearView };
   document.querySelector("#app").innerHTML = `${views[state.active]()}${scrollControls()}${nav()}`;
   syncAndroidWidget();
   bind();
@@ -605,6 +698,19 @@ function bindDragInteractions() {
   });
 }
 function act(action, id) {
+  if (action === "set-mood") { const [mood, date] = String(id).split("|"); state.moodLog = state.moodLog || {}; (state.moodLog[date] = state.moodLog[date] || []).push({ mood, time: nowTime() }); logEvent("mood", `기분 체크 ${moodLabels[mood] || ""}`, date); persist(); render(); return; }
+  if (action === "add-thought") { const input = document.querySelector("#quick-thought") || document.querySelector("#day-thought"); const text = input && input.value.trim(); if (!text) return; state.thoughts = state.thoughts || []; state.thoughts.unshift({ id: Date.now(), text, createdAt: new Date().toISOString(), status: "open" }); logEvent("thought", `생각 기록: ${text}`, todayKey); persist(); render(); return; }
+  if (action === "assign-thought") { const [tid, track] = String(id).split("|"); const t = (state.thoughts || []).find(x => x.id === Number(tid)); if (!t) return; t.status = "assigned"; t.track = track; state.items.unshift({ id: Date.now(), title: t.text, type: "task", area: "personal", date: todayKey, status: "planned", priority: track === "red" ? "high" : "normal", track, projectId: null }); logEvent(track, `${track === "red" ? "🔴" : "⚫"} 계획에 추가: ${t.text}`, todayKey); persist(); render(); return; }
+  if (action === "trash-thought") { const t = (state.thoughts || []).find(x => x.id === Number(id)); if (t) t.status = "trashed"; persist(); render(); return; }
+  if (action === "toggle-habit") { const r = state.routines.find(x => x.id === Number(id)); if (!r) return; const done = routineDayStatus(r, todayKey) === "completed"; setRoutineDayStatus(r, todayKey, done ? "planned" : "completed"); if (!done) logEvent("blue", `🔵 ${r.title}`, todayKey); persist(); render(); return; }
+  if (action === "postpone-red") { const item = state.items.find(entry => entry.id === Number(id)); if (!item) return; if (confirm("잠깐 — 지금 미루려는 게 '사실'인가요?\n확인 = 하루 미룸 · 취소 = 2분만 해보기")) { item.date = shiftDate(item.date, 1); item.status = "planned"; state.selectedDate = item.date; persist(); render(); } return; }
+  if (action === "open-day-detail") { state.active = "day"; state.detailDate = id || todayKey; render(); return; }
+  if (action === "detail-prev") { state.detailDate = shiftDate(state.detailDate || todayKey, -1); render(); return; }
+  if (action === "detail-next") { state.detailDate = shiftDate(state.detailDate || todayKey, 1); render(); return; }
+  if (action === "open-year") { state.active = "year"; state.yearNum = Number((state.detailDate || todayKey).slice(0, 4)); render(); return; }
+  if (action === "year-prev") { state.yearNum = (state.yearNum || Number(todayKey.slice(0, 4))) - 1; render(); return; }
+  if (action === "year-next") { state.yearNum = (state.yearNum || Number(todayKey.slice(0, 4))) + 1; render(); return; }
+  if (action === "year-open-month") { state.active = "calendar"; state.calendarMode = "month"; state.calendarMonth = id; state.selectedDate = `${id}-01`; render(); return; }
   if (action === "scroll-top") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   if (action === "scroll-bottom") { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }); return; }
   if (action === "fullscreen") { const root = document.documentElement; const toggle = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen?.(); if (toggle?.catch) toggle.catch(() => alert("브라우저 설정에서 전체 화면을 허용해 주세요.")); return; }
@@ -634,7 +740,7 @@ function act(action, id) {
   if (action === "schedule-routine-today") { const routine = state.routines.find(entry => entry.id === Number(id)); if (!routine) return; routine.scheduledDates = [...new Set((routine.scheduledDates || []).concat(todayKey))]; persist(); render(); return; }
   if (action === "open-routine") { state.active = "routines"; state.editingRoutineId = Number(id); render(); return; }
   if (action === "open-routine-week") { state.active = "routines"; render(); return; }
-  if (action === "complete-item") { const item = state.items.find(entry => entry.id === Number(id)); if (item) { item.status = "completed"; persist(); render(); } return; }
+  if (action === "complete-item") { const item = state.items.find(entry => entry.id === Number(id)); if (item) { item.status = "completed"; logEvent(trackOf(item) === "red" ? "red" : "black", `${trackOf(item) === "red" ? "🔴" : "⚫"} ${item.title} 완료`, todayKey); persist(); render(); } return; }
   if (action === "postpone-item") { const item = state.items.find(entry => entry.id === Number(id)); if (item && confirm(`'${item.title}' 할 일을 정말 하루 미루겠습니까?\n미루는 대신 새 날짜에 다시 확인해야 합니다.`)) { item.date = shiftDate(item.date, 1); item.status = "planned"; state.selectedDate = item.date; state.calendarMonth = item.date.slice(0, 7); state.calendarWeekStart = startOfWeek(item.date); persist(); render(); } return; }
   if (action === "bring-forward") { const item = state.items.find(entry => entry.id === Number(id)); if (item) { item.date = shiftDate(item.date, -1); state.selectedDate = item.date; state.calendarMonth = item.date.slice(0, 7); state.calendarWeekStart = startOfWeek(item.date); persist(); render(); } return; }
   if (action === "select-date") { state.selectedDate = id; state.calendarWeekStart = startOfWeek(id); persist(); render(); return; }
@@ -642,8 +748,8 @@ function act(action, id) {
   if (action === "next-month") { moveMonth(1); return; }
   if (action === "edit-item") { state.editingItemId = Number(id); render(); return; }
   if (action === "cancel-item-edit") { state.editingItemId = null; render(); return; }
-  if (action === "save-item-edit") { const item = state.items.find(entry => entry.id === Number(id)); if (!item) return; const title = document.querySelector("#edit-item-title").value.trim(); const date = document.querySelector("#edit-item-date").value; if (!title || !date) { alert("제목과 날짜를 모두 입력해 주세요."); return; } Object.assign(item, { title, date, type: document.querySelector("#edit-item-type").value, area: document.querySelector("#edit-item-area").value, status: document.querySelector("#edit-item-status").value, priority: document.querySelector("#edit-item-priority").value, projectId: Number(document.querySelector("#edit-item-project").value) || null }); state.selectedDate = date; state.calendarMonth = date.slice(0, 7); state.editingItemId = null; persist(); render(); return; }
-  if (action === "add-item") { const title = document.querySelector("#item-title").value.trim(); const type = document.querySelector("#item-type").value; const area = document.querySelector("#item-area").value; const date = document.querySelector("#item-date").value; const status = document.querySelector("#item-status").value; const priority = document.querySelector("#item-priority").value; const projectId = Number(document.querySelector("#item-project").value) || null; if (!title || !date) { alert("제목과 날짜를 모두 입력해 주세요."); return; } state.items.unshift({ id: Date.now(), title, type, area, date, status, priority, projectId }); state.selectedDate = date; state.calendarMonth = date.slice(0, 7); persist(); render(); return; }
+  if (action === "save-item-edit") { const item = state.items.find(entry => entry.id === Number(id)); if (!item) return; const title = document.querySelector("#edit-item-title").value.trim(); const date = document.querySelector("#edit-item-date").value; if (!title || !date) { alert("제목과 날짜를 모두 입력해 주세요."); return; } Object.assign(item, { title, date, type: document.querySelector("#edit-item-type").value, area: document.querySelector("#edit-item-area").value, status: document.querySelector("#edit-item-status").value, track: document.querySelector("#edit-item-track").value, priority: document.querySelector("#edit-item-track").value === "red" ? "high" : "normal", projectId: Number(document.querySelector("#edit-item-project").value) || null }); state.selectedDate = date; state.calendarMonth = date.slice(0, 7); state.editingItemId = null; persist(); render(); return; }
+  if (action === "add-item") { const title = document.querySelector("#item-title").value.trim(); const type = document.querySelector("#item-type").value; const area = document.querySelector("#item-area").value; const date = document.querySelector("#item-date").value; const status = document.querySelector("#item-status").value; const track = document.querySelector("#item-track").value; const priority = track === "red" ? "high" : "normal"; const projectId = Number(document.querySelector("#item-project").value) || null; if (!title || !date) { alert("제목과 날짜를 모두 입력해 주세요."); return; } state.items.unshift({ id: Date.now(), title, type, area, date, status, priority, track, projectId }); logEvent("add", `＋ ${title}`, date); state.selectedDate = date; state.calendarMonth = date.slice(0, 7); persist(); render(); return; }
   if (action === "delete-item") { const item = state.items.find(entry => entry.id === Number(id)); if (item && confirm(`'${item.title}' 기록을 삭제할까요?`)) { state.items = state.items.filter(entry => entry.id !== item.id); persist(); render(); } return; }
   if (action === "add-project") { const title = document.querySelector("#project-title").value.trim(); const outcome = document.querySelector("#project-outcome").value.trim(); const dueDate = document.querySelector("#project-due-date").value; if (!title || !outcome) { alert("프로젝트 이름과 완료 기준을 모두 적어 주세요."); return; } state.projects.unshift({ id: Date.now(), title, outcome, dueDate, status: document.querySelector("#project-status").value, progress: Math.max(0, Math.min(100, Number(document.querySelector("#project-progress").value) || 0)) }); persist(); render(); return; }
   if (action === "edit-project") { state.editingProjectId = Number(id); render(); return; }
@@ -664,8 +770,8 @@ function act(action, id) {
   if (action === "edit-reflection") { const entry = state.reflectionEntries.find(record => record.id === Number(id)); if (!entry) return; state.reflection = { win: entry.win, friction: entry.friction, question: entry.question }; state.editingReflectionId = entry.id; render(); return; }
   if (action === "cancel-reflection-edit") { state.reflection = { ...defaultState.reflection }; state.editingReflectionId = null; render(); return; }
   if (action === "delete-reflection") { const entry = state.reflectionEntries.find(record => record.id === Number(id)); if (entry && confirm("이 성찰 기록을 삭제할까요?")) { state.reflectionEntries = state.reflectionEntries.filter(record => record.id !== entry.id); persist(); render(); } return; }
-  if (action === "save-reflect") { const draft = { win: document.querySelector("#win").value.trim(), friction: document.querySelector("#friction").value.trim(), question: document.querySelector("#question").value.trim() }; if (!Object.values(draft).some(Boolean)) { alert("성찰 내용을 하나 이상 적어 주세요."); return; } if (state.editingReflectionId) { const entry = state.reflectionEntries.find(record => record.id === state.editingReflectionId); if (entry) Object.assign(entry, draft, { updatedAt: new Date().toISOString() }); } else state.reflectionEntries.unshift({ id: Date.now(), createdAt: new Date().toISOString(), ...draft }); state.reflection = { ...defaultState.reflection }; state.editingReflectionId = null; persist(); render(); return; }
+  if (action === "save-reflect") { const draft = { win: document.querySelector("#win").value.trim(), friction: document.querySelector("#friction").value.trim(), question: document.querySelector("#question").value.trim() }; if (!Object.values(draft).some(Boolean)) { alert("성찰 내용을 하나 이상 적어 주세요."); return; } if (state.editingReflectionId) { const entry = state.reflectionEntries.find(record => record.id === state.editingReflectionId); if (entry) Object.assign(entry, draft, { updatedAt: new Date().toISOString() }); } else state.reflectionEntries.unshift({ id: Date.now(), createdAt: new Date().toISOString(), ...draft }); logEvent("reflect", "🌙 저녁 감정 성찰 기록", todayKey); state.reflection = { ...defaultState.reflection }; state.editingReflectionId = null; persist(); render(); return; }
 }
 
 render();
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=12").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=13").catch(() => {});
