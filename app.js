@@ -190,7 +190,7 @@ function itemEditCard(item) {
 function itemCard(item) {
   if (state.editingItemId === item.id) return itemEditCard(item);
   const area = areas[item.area] || areas.personal;
-  return `<article class="item-card state-${item.status}"><div class="item-card-top"><span class="area-tag area-${area.color}">${area.label}</span><div>${priorityTag(item)}<span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div></div><strong>${esc(item.title)}</strong><p>${typeLabels[item.type]} · ${item.date}</p><div class="move-controls"><button class="outline" data-action="bring-forward" data-id="${item.id}">‹ 하루 당기기</button><button class="postpone-button" data-action="postpone-item" data-id="${item.id}">하루 미루기 ›</button></div><div class="item-actions"><select data-item-status="${item.id}" aria-label="${esc(item.title)} 상태">${statusOptions(item.status)}</select><button class="outline" data-action="edit-item" data-id="${item.id}">수정</button><button class="delete-button" data-action="delete-item" data-id="${item.id}">삭제</button></div></article>`;
+  return `<article class="item-card state-${item.status}" data-swipe-del="delete-item|${item.id}"><div class="item-card-top"><span class="area-tag area-${area.color}">${area.label}</span><div>${priorityTag(item)}<span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div></div><strong>${esc(item.title)}</strong><p>${typeLabels[item.type]} · ${item.date}</p><div class="move-controls"><button class="outline" data-action="bring-forward" data-id="${item.id}">‹ 하루 당기기</button><button class="postpone-button" data-action="postpone-item" data-id="${item.id}">하루 미루기 ›</button></div><div class="item-actions"><select data-item-status="${item.id}" aria-label="${esc(item.title)} 상태">${statusOptions(item.status)}</select><button class="outline" data-action="edit-item" data-id="${item.id}">수정</button><button class="delete-button" data-action="delete-item" data-id="${item.id}">삭제</button></div></article>`;
 }
 function timeGroups() {
   const ordered = [...state.items].sort((a, b) => a.date.localeCompare(b.date));
@@ -202,7 +202,7 @@ function timeGroups() {
 }
 function compactTask(item) {
   const area = areas[item.area] || areas.personal;
-  return `<button class="compact-task state-${item.status}" data-action="open-item" data-id="${item.id}" data-drag-type="task" data-drag-id="${item.id}" data-drag-date="${item.date}"><span class="drag-handle" title="길게 눌러 이동" aria-label="길게 눌러 이동">⋮⋮</span><div><strong>${esc(item.title)}</strong><small>${item.date} · ${typeLabels[item.type]} · 눌러서 수정</small></div><div><span class="area-tag area-${area.color}">${areas[item.area].label}</span>${priorityTag(item)}<span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div></button>`;
+  return `<button class="compact-task state-${item.status}" data-action="open-item" data-id="${item.id}" data-swipe-del="delete-item|${item.id}" data-drag-type="task" data-drag-id="${item.id}" data-drag-date="${item.date}"><span class="drag-handle" title="길게 눌러 이동" aria-label="길게 눌러 이동">⋮⋮</span><div><strong>${esc(item.title)}</strong><small>${item.date} · ${typeLabels[item.type]} · 눌러서 수정</small></div><div><span class="area-tag area-${area.color}">${areas[item.area].label}</span>${priorityTag(item)}<span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div></button>`;
 }
 function taskFold(title, items, kind, open = false, limit = null) {
   const visible = limit ? items.slice(0, limit) : items;
@@ -454,7 +454,7 @@ function routines() {
   const todayRoutines = state.routineArea === "all" ? allTodayRoutines : allTodayRoutines.filter(routine => routine.area === state.routineArea);
   const week = weekDates(state.selectedDate || todayKey);
   return `${header("SMALL HABITS / REPEAT", "루틴", "작은 습관을 놓치지 않도록 오늘 실행, 반복 요일, 전체 목록을 한곳에 모았습니다.")}
-  <section class="card routine-today-card"><div class="topline"><div><strong>오늘의 루틴</strong><small>고정·비고정·월간·연간 중 오늘 할 일</small></div><span class="pill ochre">${todayRoutines.filter(routine => routineDayStatus(routine, todayKey) === "completed").length}/${todayRoutines.length} 완료</span></div><div class="routine-area-filter"><button class="filter-chip ${state.routineArea === "all" ? "active" : ""}" data-action="routine-area" data-id="all">전체</button>${Object.entries(areas).map(([key, area]) => `<button class="filter-chip area-${area.color} ${state.routineArea === key ? "active" : ""}" data-action="routine-area" data-id="${key}">${area.label}</button>`).join("")}</div><div class="routine-today-list">${routineAreaGroups(todayRoutines)}</div>${state.routineArea === "all" ? todayNonFixedPicker() : ""}</section>
+  <section class="card routine-today-card"><div class="topline"><div><strong>오늘의 루틴</strong><small>고정·비고정·월간·연간 중 오늘 할 일</small></div><span class="pill ochre">${todayRoutines.filter(routine => routineDayStatus(routine, todayKey) === "completed").length}/${todayRoutines.length} 완료</span></div><div class="routine-today-list">${todayRoutines.length ? todayRoutines.map(routine => routineDayRow(routine, todayKey)).join("") : `<p class="fold-empty">오늘 실행할 루틴이 없습니다.</p>`}</div>${state.routineArea === "all" ? todayNonFixedPicker() : ""}</section>
   <section class="card routine-week-card"><div class="calendar-title"><button class="month-button" data-action="prev-week">‹</button><strong>${formatWeekDate(week[0])} — ${formatWeekDate(week[6])}</strong><button class="month-button" data-action="next-week">›</button></div><div class="routine-week-strip">${week.map(date => { const count = state.routines.filter(routine => routineOccursOnDate(routine, date)).length; return `<button class="${date === todayKey ? "today-slot" : ""}" data-action="open-calendar-date" data-id="${date}"><strong>${weekdayLabel(date)}</strong><span>${date.slice(-2)}</span><small>${count}개</small></button>`; }).join("")}</div></section>
   <details class="weekly-fold"><summary>이번 주 요일별 점검 <small>펼쳐서 하루씩 기록</small></summary>${weeklyRoutineManager()}</details>
   ${routinesView()}`;
@@ -487,7 +487,7 @@ function blueHabits() {
 }
 function blackBlock() {
   const blacks = state.items.filter(item => trackOf(item) === "black" && item.status !== "completed" && item.date <= todayKey);
-  return `<details class="card block-black"><summary><span class="cdot black"></span>틈틈이 <small>여유 될 때 · ${blacks.length}개</small></summary><div class="black-inner">${blacks.length ? blacks.map(item => `<button class="black-row" data-action="complete-item" data-id="${item.id}"><span class="hbox sm"></span>${esc(item.title)}</button>`).join("") : `<p class="fold-empty">잡무가 없습니다.</p>`}</div></details>`;
+  return `<details class="card block-black"><summary><span class="cdot black"></span>틈틈이 <small>여유 될 때 · ${blacks.length}개</small></summary><div class="black-inner">${blacks.length ? blacks.map(item => `<button class="black-row" data-action="complete-item" data-id="${item.id}" data-swipe-del="delete-item|${item.id}"><span class="hbox sm"></span>${esc(item.title)}</button>`).join("") : `<p class="fold-empty">잡무가 없습니다.</p>`}</div></details>`;
 }
 function todayNew() {
   const open = (state.thoughts || []).filter(thought => thought.status === "open").length;
@@ -566,11 +566,11 @@ function bmType(url) { return /youtu\.?be/i.test(url) ? "yt" : /threads\.net/i.t
 function bmMeta(t) { return ({ yt: ["ic yt", "▶"], th: ["ic th", "@"], web: ["ic web", "🌐"] })[t] || ["ic web", "🌐"]; }
 function bookmarkList() {
   const bms = state.bookmarks || [];
-  return `<div class="add"><input id="bm-input" placeholder="링크 붙여넣기 (웹·유튜브·스레드)"><button class="qt-btn" data-action="add-bookmark">담기</button></div><div class="list">${bms.length ? bms.map(b => { const m = bmMeta(b.type || "web"); const host = b.url.replace(/^https?:\/\//, "").split("/")[0]; return `<div class="bm"><span class="${m[0]}">${m[1]}</span><button class="tx" data-action="open-bookmark" data-id="${b.id}"><b>${esc(b.title || host)}</b><small>${esc(host)}</small></button><button class="rec-del" data-action="delete-bookmark" data-id="${b.id}">✕</button></div>`; }).join("") : `<p class="fold-empty">저장한 링크가 없습니다. 위에 붙여넣어 담아보세요.</p>`}</div><p class="rec-hint">안드로이드 설치형 앱에선 공유시트로 바로 담을 수 있어요.</p>`;
+  return `<div class="add"><input id="bm-input" placeholder="링크 붙여넣기 (웹·유튜브·스레드)"><button class="qt-btn" data-action="add-bookmark">담기</button></div><div class="list">${bms.length ? bms.map(b => { const m = bmMeta(b.type || "web"); const host = b.url.replace(/^https?:\/\//, "").split("/")[0]; return `<div class="bm" data-swipe-del="delete-bookmark|${b.id}"><span class="${m[0]}">${m[1]}</span><button class="tx" data-action="open-bookmark" data-id="${b.id}"><b>${esc(b.title || host)}</b><small>${esc(host)}</small></button><button class="rec-del" data-action="delete-bookmark" data-id="${b.id}">✕</button></div>`; }).join("") : `<p class="fold-empty">저장한 링크가 없습니다. 위에 붙여넣어 담아보세요.</p>`}</div><p class="rec-hint">← 옆으로 밀어 삭제 · 안드로이드에선 공유시트로 담기 가능</p>`;
 }
 function memoList() {
   const ms = state.memos || [];
-  return `<div class="add"><input id="memo-input" placeholder="메모 한 줄…"><button class="qt-btn" data-action="add-memo">담기</button></div><div class="list">${ms.length ? ms.map(m => `<div class="memo"><b>${esc(m.title)}</b>${m.body ? `<p>${esc(m.body)}</p>` : ""}<small>${new Date(m.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}</small><button class="rec-del memo-del" data-action="delete-memo" data-id="${m.id}">✕</button></div>`).join("") : `<p class="fold-empty">저장한 메모가 없습니다.</p>`}</div>`;
+  return `<div class="add"><input id="memo-input" placeholder="메모 한 줄…"><button class="qt-btn" data-action="add-memo">담기</button></div><div class="list">${ms.length ? ms.map(m => `<div class="memo" data-swipe-del="delete-memo|${m.id}"><b>${esc(m.title)}</b>${m.body ? `<p>${esc(m.body)}</p>` : ""}<small>${new Date(m.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}</small><button class="rec-del memo-del" data-action="delete-memo" data-id="${m.id}">✕</button></div>`).join("") : `<p class="fold-empty">저장한 메모가 없습니다.</p>`}</div><p class="rec-hint">← 옆으로 밀어 삭제</p>`;
 }
 function photoGrid() {
   const ph = state.photos || [];
@@ -601,6 +601,14 @@ function bind() {
   document.querySelectorAll("[data-routine-status]").forEach(select => select.onchange = () => { const routine = state.routines.find(entry => entry.id === Number(select.dataset.routineStatus)); if (routine) { const stats = routineStats(routine); routine.statusByPeriod[stats.key] = select.value; persist(); render(); } });
   document.querySelectorAll("[data-routine-day-status]").forEach(select => select.onchange = () => { const [routineId, date] = select.dataset.routineDayStatus.split("|"); const routine = state.routines.find(entry => entry.id === Number(routineId)); if (routine) { setRoutineDayStatus(routine, date, select.value); persist(); render(); } });
   document.querySelectorAll(".wd-preset").forEach(btn => btn.onclick = () => { const map = { all: [0, 1, 2, 3, 4, 5, 6], weekday: [0, 1, 2, 3, 4], weekend: [5, 6], none: [] }; const set = new Set(map[btn.dataset.preset] || []); document.querySelectorAll(`[data-${btn.dataset.prefix}-weekday]`).forEach(cb => { cb.checked = set.has(Number(cb.value)); }); });
+  document.querySelectorAll("[data-swipe-del]").forEach(el => {
+    let sx = 0, sy = 0, on = false;
+    el.style.touchAction = "pan-y";
+    el.addEventListener("pointerdown", e => { if (e.target.closest(".drag-handle")) return; sx = e.clientX; sy = e.clientY; on = true; });
+    el.addEventListener("pointermove", e => { if (!on) return; const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dy) > Math.abs(dx) + 6) { on = false; el.style.transform = ""; el.style.opacity = "1"; return; } if (dx < 0) { const t = Math.max(dx, -160); el.style.transform = `translateX(${t}px)`; el.style.opacity = String(1 + t / 340); } });
+    el.addEventListener("pointerup", e => { if (!on) return; on = false; const dx = e.clientX - sx; if (Math.abs(dx) > 10) suppressNextActionClick = true; el.style.transition = "transform .18s, opacity .18s"; if (dx < -100) { const parts = String(el.dataset.swipeDel).split("|"); el.style.transform = "translateX(-360px)"; el.style.opacity = "0"; setTimeout(() => swipeDelete(parts[0], parts[1]), 150); } else { el.style.transform = ""; el.style.opacity = "1"; } setTimeout(() => { suppressNextActionClick = false; }, 250); });
+    el.addEventListener("pointercancel", () => { on = false; el.style.transform = ""; el.style.opacity = "1"; });
+  });
   document.querySelectorAll(".ph-img[data-pid]").forEach(img => { idbGet(img.dataset.pid).then(blob => { if (blob) img.src = URL.createObjectURL(blob); }); });
   const photoInput = document.querySelector("#photo-input"); if (photoInput) photoInput.onchange = event => { const file = event.target.files && event.target.files[0]; if (file) handlePhotoFile(file); };
   bindDragInteractions();
@@ -741,6 +749,12 @@ function bindDragInteractions() {
     };
   });
 }
+function swipeDelete(action, id) {
+  if (action === "delete-item") state.items = state.items.filter(x => x.id !== Number(id));
+  else if (action === "delete-bookmark") state.bookmarks = (state.bookmarks || []).filter(x => x.id !== Number(id));
+  else if (action === "delete-memo") state.memos = (state.memos || []).filter(x => x.id !== Number(id));
+  persist(); render();
+}
 function act(action, id) {
   if (action === "record-seg") { state.recordSeg = id; render(); return; }
   if (action === "add-bookmark") { const input = document.querySelector("#bm-input"); const url = input && input.value.trim(); if (!url) return; state.bookmarks = state.bookmarks || []; state.bookmarks.unshift({ id: Date.now(), url: /^https?:/.test(url) ? url : "https://" + url, title: "", type: bmType(url) }); persist(); render(); return; }
@@ -826,4 +840,4 @@ function act(action, id) {
 }
 
 render();
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=16").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=17").catch(() => {});

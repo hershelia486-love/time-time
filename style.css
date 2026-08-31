@@ -681,3 +681,6 @@ body{
 .rf-goal{ font-size:11px; color:var(--rose); background:var(--rose-bg); padding:3px 10px; border-radius:20px; font-weight:700; }
 .goal-today{ margin-top:11px; padding-top:11px; border-top:1px solid var(--line); font-size:13px; }
 .goal-today .outline.mini{ width:100%; }
+
+/* v17: 스와이프 삭제 */
+[data-swipe-del]{ touch-action: pan-y; will-change: transform; }
