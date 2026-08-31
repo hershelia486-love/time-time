@@ -53,7 +53,7 @@ const defaultState = {
     { id: 102, title: "월간 나침반 점검", cadence: "monthly", target: 1, area: "personal", completions: [], fixed: false, monthlyDay: 1, active: true, statusByPeriod: {} },
     { id: 103, title: "연간 삶의 방향 검토", cadence: "yearly", target: 1, area: "personal", completions: [], fixed: false, yearlyMonth: 1, yearlyDay: 1, active: true, statusByPeriod: {} }
   ],
-  notes: {}, reflection: { win: "", friction: "", question: "" }, reflectionEntries: [], garden: { points: 0 }, moodLog: {}, thoughts: [], events: [], bookmarks: [], memos: [], photos: [], recordSeg: "bm", detailDate: todayKey, yearNum: Number(todayKey.slice(0, 4)), active: "today", selectedTool: null, randomToolId: null,
+  notes: {}, reflection: { win: "", friction: "", question: "" }, reflectionEntries: [], garden: { points: 0 }, moodLog: {}, thoughts: [], events: [], bookmarks: [], memos: [], photos: [], recordSeg: "bm", selectMode: false, selectedIds: [], detailDate: todayKey, yearNum: Number(todayKey.slice(0, 4)), active: "today", selectedTool: null, randomToolId: null,
   calendarMonth: todayKey.slice(0, 7), selectedDate: todayKey, calendarWeekStart: todayKey, calendarLayout: "vertical", calendarMode: "month", routinePickerDate: null,
   editingItemId: null, editingProjectId: null, editingRoutineId: null, editingReflectionId: null,
   dashboardArea: "all", routineArea: "all", calendarArea: "all", calendarHorizon: "all", calendarStatus: "all", calendarPriority: "all"
@@ -88,7 +88,7 @@ function load() {
       }),
       reflectionEntries: stored?.reflectionEntries ?? migratedReflections,
       reflection: stored?.reflectionEntries ? (stored?.reflection ?? defaultState.reflection) : defaultState.reflection,
-      editingItemId: null, editingProjectId: null, editingRoutineId: null, editingReflectionId: null
+      editingItemId: null, editingProjectId: null, editingRoutineId: null, editingReflectionId: null, selectMode: false, selectedIds: []
     };
   } catch { return structuredClone(defaultState); }
 }
@@ -202,6 +202,7 @@ function timeGroups() {
 }
 function compactTask(item) {
   const area = areas[item.area] || areas.personal;
+  if (state.selectMode) { const sel = (state.selectedIds || []).includes(item.id); return `<button class="compact-task select-mode ${sel ? "selected" : ""} state-${item.status}" data-action="toggle-select" data-id="${item.id}"><span class="sel-box">${sel ? "✓" : ""}</span><div><strong>${esc(item.title)}</strong><small>${item.date} · ${typeLabels[item.type]}</small></div><span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></button>`; }
   return `<button class="compact-task state-${item.status}" data-action="open-item" data-id="${item.id}" data-swipe-del="delete-item|${item.id}" data-drag-type="task" data-drag-id="${item.id}" data-drag-date="${item.date}"><span class="drag-handle" title="길게 눌러 이동" aria-label="길게 눌러 이동">⋮⋮</span><div><strong>${esc(item.title)}</strong><small>${item.date} · ${typeLabels[item.type]} · 눌러서 수정</small></div><div><span class="area-tag area-${area.color}">${areas[item.area].label}</span>${priorityTag(item)}<span class="status-tag status-${item.status}">${statusLabels[item.status]}</span></div></button>`;
 }
 function taskFold(title, items, kind, open = false, limit = null) {
@@ -319,7 +320,7 @@ function calendarView() {
   <section class="filter-panel"><div class="filter-label">시간대</div><div class="filter-row"><button class="filter-chip ${state.calendarHorizon === "all" ? "active" : ""}" data-action="calendar-horizon" data-id="all">전체</button><button class="filter-chip ${state.calendarHorizon === "past" ? "active" : ""}" data-action="calendar-horizon" data-id="past">지난 기록</button><button class="filter-chip ${state.calendarHorizon === "today" ? "active" : ""}" data-action="calendar-horizon" data-id="today">오늘</button><button class="filter-chip ${state.calendarHorizon === "future" ? "active" : ""}" data-action="calendar-horizon" data-id="future">예정</button></div><div class="filter-label">상태</div><div class="filter-row"><button class="filter-chip ${state.calendarStatus === "all" ? "active" : ""}" data-action="calendar-status" data-id="all">전체 상태</button>${Object.entries(statusLabels).map(([key, label]) => `<button class="filter-chip status-${key} ${state.calendarStatus === key ? "active" : ""}" data-action="calendar-status" data-id="${key}">${label}</button>`).join("")}</div></section>
   <section class="card calendar-summary"><div><strong>필터 결과 달성률</strong><span class="big-percent">${allStats.percent}%</span></div><div class="progress"><span style="width:${allStats.percent}%"></span></div><p>${filteredItems.length}개 중 계획 ${allStats.planned} · 진행 ${allStats.progress} · 완료 ${allStats.completed}</p></section>
   <section class="card calendar-routine-summary"><div><strong>이번 주기 루틴</strong><span class="big-percent">${routinePercent}%</span></div><div class="progress"><span style="width:${routinePercent}%"></span></div><p>${routineComplete}/${routineTarget || 0}회 달성 · 주간·월간·연간 루틴을 포함합니다.</p><button class="linkbtn" data-tab="reflect">루틴 기록 보기 ›</button></section>
-  <details class="quick-results" open><summary>지금 보고 있는 기록 <small>${filteredItems.length}개</small></summary><div class="quick-results-list">${filteredItems.length ? filteredItems.slice(0, 8).map(compactTask).join("") : `<p class="fold-empty">현재 필터에 맞는 기록이 없습니다.</p>`}${filteredItems.length > 8 ? `<p class="more-note">${filteredItems.length - 8}개가 더 있습니다. 필터를 좁혀 보세요.</p>` : ""}</div></details>
+  <div class="select-toggle-row"><button class="linkbtn" data-action="${state.selectMode ? "exit-select" : "enter-select"}">${state.selectMode ? "✕ 선택 종료" : "☑ 여러 개 선택·완료·삭제"}</button></div><details class="quick-results" open><summary>지금 보고 있는 기록 <small>${filteredItems.length}개</small></summary><div class="quick-results-list">${filteredItems.length ? filteredItems.slice(0, state.selectMode ? 500 : 8).map(compactTask).join("") : `<p class="fold-empty">현재 필터에 맞는 기록이 없습니다.</p>`}${!state.selectMode && filteredItems.length > 8 ? `<p class="more-note">${filteredItems.length - 8}개가 더 있습니다. 필터를 좁혀 보세요.</p>` : ""}</div></details>
   <section class="area-progress-grid">${Object.entries(areas).map(([key, area]) => { const stat = progressStats(state.items.filter(item => item.area === key)); return `<button class="area-progress area-${area.color}" data-action="calendar-area" data-id="${key}"><strong>${area.label}</strong><span>${stat.percent}%</span><small>${stat.completed}/${stat.total || 0} 완료 · 보기</small></button>`; }).join("")}</section>
   ${planner}
   <div class="section-title"><span>${selected.replaceAll("-", ".")} 기록</span><span class="meta">${selectedItems.length}개</span></div>
@@ -586,9 +587,14 @@ function recordsView() {
 }
 function render() {
   const views = { today: todayNew, calendar: calendarView, routines, projects, tools: toolsView, reflect, records: recordsView, day: dayDetail, year: yearView };
-  document.querySelector("#app").innerHTML = `${views[state.active]()}${scrollControls()}${nav()}`;
+  document.querySelector("#app").innerHTML = `${views[state.active]()}${state.selectMode ? "" : scrollControls()}${selectBar()}${nav()}`;
   syncAndroidWidget();
   bind();
+}
+function selectBar() {
+  if (!state.selectMode) return "";
+  const n = (state.selectedIds || []).length;
+  return `<div class="select-bar"><span class="sb-count">${n}개 선택</span><button class="sb-btn done" data-action="bulk-complete">완료 ✓</button><button class="sb-btn del" data-action="bulk-delete">삭제</button><button class="sb-btn" data-action="exit-select">취소</button></div>`;
 }
 function scrollControls() {
   return `<nav class="scroll-controls" aria-label="화면 이동"><button class="scroll-control-button" data-action="scroll-top" title="맨 위로 이동" aria-label="맨 위로 이동"><span aria-hidden="true">↑</span><small>위로</small></button><button class="scroll-control-button" data-action="scroll-bottom" title="맨 아래로 이동" aria-label="맨 아래로 이동"><span aria-hidden="true">↓</span><small>아래</small></button></nav>`;
@@ -756,6 +762,11 @@ function swipeDelete(action, id) {
   persist(); render();
 }
 function act(action, id) {
+  if (action === "enter-select") { state.selectMode = true; state.selectedIds = []; render(); return; }
+  if (action === "exit-select") { state.selectMode = false; state.selectedIds = []; render(); return; }
+  if (action === "toggle-select") { const nid = Number(id); state.selectedIds = state.selectedIds || []; state.selectedIds = state.selectedIds.includes(nid) ? state.selectedIds.filter(x => x !== nid) : [...state.selectedIds, nid]; render(); return; }
+  if (action === "bulk-complete") { (state.selectedIds || []).forEach(nid => { const it = state.items.find(x => x.id === nid); if (it && it.status !== "completed") { it.status = "completed"; addWater(trackOf(it) === "red" ? 3 : 1); } }); state.selectMode = false; state.selectedIds = []; persist(); render(); return; }
+  if (action === "bulk-delete") { const ids = state.selectedIds || []; if (ids.length && confirm(`${ids.length}개 기록을 삭제할까요?`)) { state.items = state.items.filter(x => !ids.includes(x.id)); } state.selectMode = false; state.selectedIds = []; persist(); render(); return; }
   if (action === "record-seg") { state.recordSeg = id; render(); return; }
   if (action === "add-bookmark") { const input = document.querySelector("#bm-input"); const url = input && input.value.trim(); if (!url) return; state.bookmarks = state.bookmarks || []; state.bookmarks.unshift({ id: Date.now(), url: /^https?:/.test(url) ? url : "https://" + url, title: "", type: bmType(url) }); persist(); render(); return; }
   if (action === "open-bookmark") { const b = (state.bookmarks || []).find(x => x.id === Number(id)); if (b) window.open(b.url, "_blank", "noopener"); return; }
@@ -840,4 +851,4 @@ function act(action, id) {
 }
 
 render();
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=17").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./service-worker.js?v=18").catch(() => {});

@@ -684,3 +684,15 @@ body{
 
 /* v17: 스와이프 삭제 */
 [data-swipe-del]{ touch-action: pan-y; will-change: transform; }
+
+/* v18: 일괄 선택 (완료·삭제) */
+.select-toggle-row{ margin:2px 2px 8px; text-align:right; }
+.compact-task.select-mode{ cursor:pointer; align-items:center; }
+.compact-task.select-mode .sel-box{ width:26px; height:26px; flex:none; border-radius:8px; background:#efe9e0; display:grid; place-items:center; font-weight:900; color:var(--sage); box-shadow:inset 2px 2px 5px var(--sh-d), inset -2px -2px 5px var(--sh-l); margin-right:10px; }
+.compact-task.select-mode.selected{ box-shadow:5px 5px 12px var(--sh-d), -5px -5px 12px var(--sh-l), inset 0 0 0 2px var(--sage); }
+.compact-task.select-mode.selected .sel-box{ background:var(--sage); color:#fff; box-shadow:none; }
+.select-bar{ position:fixed; left:12px; right:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:5; display:flex; align-items:center; gap:8px; background:var(--paper); border-radius:18px; padding:11px 14px; box-shadow:6px 6px 16px rgba(150,138,120,.42), -4px -4px 12px rgba(255,255,255,.7); }
+.select-bar .sb-count{ font-weight:800; font-size:13px; margin-right:auto; }
+.select-bar .sb-btn{ border:none; border-radius:12px; font-family:inherit; font-weight:800; font-size:13px; padding:9px 13px; background:#efe9e0; color:var(--ink); cursor:pointer; box-shadow:3px 3px 7px var(--sh-d), -3px -3px 7px var(--sh-l); }
+.select-bar .sb-btn.done{ background:var(--sage); color:#fff; }
+.select-bar .sb-btn.del{ background:var(--rose); color:#fff; }

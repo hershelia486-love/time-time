@@ -1,5 +1,5 @@
-const CACHE="ttc-pwa-v17";
-const ASSETS=["/","/index.html","/style.css?v=17","/app.js?v=17","/manifest.webmanifest?v=2"];
+const CACHE="ttc-pwa-v18";
+const ASSETS=["/","/index.html","/style.css?v=18","/app.js?v=18","/manifest.webmanifest?v=2"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",event=>event.respondWith(fetch(event.request).catch(()=>caches.match(event.request))));
