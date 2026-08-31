@@ -669,3 +669,15 @@ body{
 .ph .ph-img{ width:100%; height:100%; object-fit:cover; display:block; }
 .ph.add{ display:grid; place-items:center; font-size:26px; color:var(--muted); border:2px dashed #cfc7b6; box-shadow:none; background:var(--paper); }
 .rec-hint{ font-size:11.5px; color:var(--muted); text-align:center; margin:14px 2px 0; line-height:1.5; }
+
+/* v16: 요일 프리셋 · 주간 점검 접기 · 목표↔빨강 */
+.wd-presets{ display:flex; gap:6px; margin:0 0 8px; flex-wrap:wrap; }
+.wd-preset{ border:none; border-radius:12px; background:var(--paper); color:var(--ink); font-family:inherit; font-weight:700; font-size:12px; padding:7px 12px; cursor:pointer; box-shadow:3px 3px 7px var(--sh-d), -3px -3px 7px var(--sh-l); }
+.wd-preset:active{ box-shadow:inset 2px 2px 5px var(--sh-d), inset -2px -2px 5px var(--sh-l); }
+.weekly-fold{ border:none; border-radius:16px; background:var(--paper); margin:6px 2px 16px; padding:12px 14px; box-shadow:5px 5px 12px var(--sh-d), -5px -5px 12px var(--sh-l); }
+.weekly-fold > summary{ list-style:none; cursor:pointer; font-weight:800; font-size:14px; }
+.weekly-fold > summary::-webkit-details-marker{ display:none; }
+.weekly-fold > summary small{ color:var(--muted); font-weight:600; font-size:11.5px; margin-left:6px; }
+.rf-goal{ font-size:11px; color:var(--rose); background:var(--rose-bg); padding:3px 10px; border-radius:20px; font-weight:700; }
+.goal-today{ margin-top:11px; padding-top:11px; border-top:1px solid var(--line); font-size:13px; }
+.goal-today .outline.mini{ width:100%; }
